@@ -22,6 +22,9 @@ That is, a function that takes some `context` and returns a (potentially updated
 all manner of computations that can be expressed in a purely functional way: we
 can update the context, throw an error, return a value, or some combination!
 
+> ❗️ This package is written in _pure Gleam_ so you can use it whether you're
+targetting Erlang _or_ JavaScript.
+
 ---
 
 ## Quick start
@@ -40,3 +43,227 @@ gleam add eval
 ```
 
 and its documentation can be found at <https://hexdocs.pm/eval>.
+
+---
+
+## Usage
+
+I mentioned above that an `Eval` is essentially a function that takes some
+`context` and returns a `Result`. We can start to express more complex and powerful
+computations by composing these functions together using the various functions
+provided in this package.
+
+To demonstrate how everything can neatly fit together, let's write a parser for
+a simple expression language. To keep things manageable, our expression language
+will only allow for two types of expressions:
+
+- `Number`s which are just integers...
+- ...and `Add`s, which are binary expressions that add two numbers together
+
+```gleam
+type Expr {
+    Number(Int)
+    Add(Expr, Expr)
+}
+```
+
+Our `Parser` type will be a specialisation of the `Eval` type from this package.
+The context will be a `List(String)` that represents the current stream of
+graphemes (Gleam doesn't have a traditional `Char` type). Additionally, we will
+define an `Error` type that we can throw if something goes wrong during parsing:
+
+```gleam
+type Error {
+    Unexpected(String)
+    EOF
+    InvalidParser
+}
+```
+
+Finally, while we intend on ultimately parsing some `Expr` value, we will leave
+the the type free in our `Parser` type, so that we can write intermediary parsers
+that may return some other type instead (this will be useful, as we'll se in a
+moment).
+
+```
+type Parser(a) =
+    Eval(a, Error, List(String))
+```
+
+### Basic building blocks
+
+Now we know what types we'll be dealing with, it's time to write out first parsers
+using this package! We're going to begin by defining a `peek` and a `pop` parser
+that will return the next grapheme in the context (and remove it, in the case of
+`pop`).
+
+First, make sure we've imported everything we need:
+
+```gleam
+import eval
+import eval/context
+import gleam/int
+import gleam/list
+import gleam/string
+```
+
+Then we can define our `peek` parser:
+
+```gleam
+pub fn peek () -> Parser(String) {
+    context.get() |> eval.then(fn (stream) {
+        case stream {
+            [ grapheme, .. ] ->
+                eval.succeed(grapheme)
+            
+            _ ->
+                eval.fail(EOF)
+        }
+    })
+}
+```
+
+The API of this package has been designed so that (hopefully) this reads quite
+naturally, even if you are not familiar with how things are implemented, or indeed
+Gleam or functional programming in general. First we `get` the context, `then` we
+look at the stream. If there are still graphemes left we `succeed` with the first
+element in the stream, otherwise we `fail` with an `EOF` error.
+
+Our `pop` parser is almost identical, with the additional step of modifying the
+context to remove the grapheme we want to return:
+
+```gleam
+pub fn pop () -> Parser(String) {
+    context.get() |> eval.then(fn (stream) {
+        case stream {
+            [ grapheme, ..rest ] ->
+                context.set(rest)
+                    |> eval.replace(grapheme)
+            
+            _ ->
+                eval.fail(EOF)
+        }
+    })
+}
+```
+
+### Some parser combinators
+
+With just `peek` and `pop` we can start to build up more powerful parsers. To
+parse an integer we'll need to continuously `pop` graphemes off the stack until
+we come across a non-digit character. We can do this by writing a `many`
+combinator:
+
+```gleam
+pub fn many (parser: Parser(a)) -> Parser(List(a)) {
+    let append = fn (x, xs) { [ x, ..xs ] }
+    let go = fn (xs) {
+        eval.try_(parser |> eval.then(append(_, xs)), catch: fn (_) {
+            list.reverse(xs) 
+                |> eval.succeed
+        })
+    }
+
+    go([])
+}
+```
+
+This will repeatedly call `parser` until it fails, and then return the list of
+all the values it has parsed so far. The list is reversed before returning
+because we want to return the values in the order they were parsed.
+
+> ❓ How might we modify this to parse `one_or_more` of something instead? There's
+more than one way, but thinking about it will hopefully help you see all the
+interesting ways `Eval` computations can be built up!
+
+It's worth noting that `many` itself doesn't alter the context in any way. Despite
+this, changes to the context made by running `parser` will be propagated to later
+runs as you'd expect. No manual threading of state required.
+
+Before we can parse integers, we'll want a `digit` parser to pass to `many`:
+
+```gleam
+pub fn digit () -> Parser(String) {
+    peek() |> eval.then(fn (grapheme) {
+        case grapheme {
+            "0" | "1" | "2" | "3" | "4" |
+            "5" | "6" | "7" | "8" | 9" ->
+                pop() |> eval.replace(grapheme)
+            
+            _ ->
+                eval.fail(Unexpected(grapheme))
+        }
+    })
+}
+```
+
+Then, we can write an `int` parser that consumes as many digits as possible,
+joins the string back together and then uses Gleam's own `int.parse` function to
+turn that string into a bona fide integer:
+
+```gleam
+pub fn int () -> Parser(Int) {
+    many(digit())
+        |> eval.map(string.join(_, ""))
+        |> eval.map(fn (digits) {
+            assert Ok(n) = int.parse(digits)
+
+            n
+        })
+}
+```
+
+With that out of the way, the final combinator we need is one that let's attempt
+multiple parsers, and keep the result of whichever succeeds first. For that we
+will define `one_of`:
+
+```gleam
+pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
+    case parsers {
+        [ parser, ..rest ] ->
+            eval.try_(parser, catch: fn (_) {
+                one_of(rest)
+            })
+
+        _ ->
+            eval.fail(InvalidParser)
+    }
+}
+```
+
+### Parsing expressions
+
+Now we are ready to write a parser for each our of expression variants, and then
+combine everything into a single `expr` parser. We've seen enough of the `eval`
+package now to be able to put together these parsers will little comment, so here
+is the rest of the program:
+
+```gleam
+pub fn number () -> Parser(Expr) {
+    int() |> eval.map(Number)
+}
+
+pub fn expr () -> Parser(Expr) {
+    number() |> eval.then(fn (lhs) {
+        peek() |> eval.then(fn (grapheme) {
+            case grapheme {
+                "+" ->
+                    pop() |> eval.then(fn (_) {
+                        expr() |> eval.map(fn (rhs) {
+                            Add(lhs, rhs)
+                        })
+                    })
+
+                _ ->
+                    eval.succeed(lhs)
+            }
+        })
+    })
+}
+
+pub fn run (input: String) -> Result(Expr, Error) {
+    eval.run(expr(), with:
+        string.graphemes(input)
+    )
+}
+```
