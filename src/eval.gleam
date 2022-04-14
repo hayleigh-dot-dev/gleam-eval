@@ -345,11 +345,11 @@ pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
 ///
 pub fn try_ (eval: Eval(a, e, ctx), catch f: fn (e) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx_, result) = runwrap(eval, ctx)
 
     case result {
       Ok(a) ->
-        #(ctx, Ok(a))
+        #(ctx_, Ok(a))
 
       Error(e) ->
         runwrap(f(e), ctx)
