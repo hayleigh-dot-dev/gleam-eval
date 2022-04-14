@@ -4,7 +4,7 @@ version = "1.0.0"
 # Fill out these fields if you intend to generate HTML documentation or publish
 # your project to the Hex package manager.
 #
-licences = ["Apache-2.0"]
+licences = ["MIT"]
 description = "A Gleam package to help you thread state through a series of steps."
 repository = { type = "github", user = "hayleigh-dot-dev", repo = "gleam-eval" }
 # links = [{ title = "Website", href = "https://gleam.run" }]
