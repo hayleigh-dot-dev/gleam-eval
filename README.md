@@ -187,7 +187,7 @@ pub fn digit () -> Parser(String) {
     peek() |> eval.then(fn (grapheme) {
         case grapheme {
             "0" | "1" | "2" | "3" | "4" |
-            "5" | "6" | "7" | "8" | 9" ->
+            "5" | "6" | "7" | "8" | "9" ->
                 pop() |> eval.replace(grapheme)
             
             _ ->
