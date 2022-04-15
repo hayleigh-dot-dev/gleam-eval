@@ -1,4 +1,5 @@
 import examples/expr.{ eval, Add, Num, Var, Let, UndefinedVariable }
+import examples/parser.{ run, Unexpected, UnexpectedEOF, InvalidParser }
 import gleam/function
 import gleam/io
 import gleam/list
@@ -45,4 +46,20 @@ pub fn expr_test () {
       Add(Var("x"), Var("y"))
     )
   ))
+}
+
+pub fn parser_test () {
+  let expect = fn (input, expected, parser) {
+    parser.run(input, parser)
+      |> should.equal(expected)
+  }
+
+  expect("1 + 1", Ok(2), 
+    eval.succeed2(fn (x, y) { x + y })
+      |> parser.keep(parser.int())
+      |> parser.drop(parser.ws())
+      |> parser.drop(parser.symbol("+"))
+      |> parser.drop(parser.ws())
+      |> parser.keep(parser.int())
+  )
 }
