@@ -55,39 +55,50 @@ pub fn succeed (a: a) -> Eval(a, e, ctx) {
   })
 }
 
+/// Like `succeed`, but allows you to pass in a function that takes two arguments.
+/// This is most commonly used with `apply` to run a series of `Eval`s in a
+/// pipeline to build up some more complex value.
+///
+/// 📝 Note: when used this way, this is often known as "applicative programming".
+/// In this context, the `Eval` type would be known as an _applicative functor_.
+///
+/// ❓ Why are these `succeedN` functions necessary? In other functional programming
+/// languages, like Elm or Haskell, functions are _curried_ which means all
+/// functions are actually just a series of single-argument functions that return
+/// other functions. We can achieve this in Gleam by using the `function.curryN`
+/// functions. 
+///
+/// We need the functions passed to `succeed` to be curried to work properly with
+/// `apply`, and so we provide a handful of these `succeedN` functions that do
+/// the currying for you.
 ///
 pub fn succeed2 (f: fn (a, b) -> c) -> Eval(fn (a) -> fn (b) -> c, e, ctx) {
-  Eval(fn (ctx) {
-    #(ctx, Ok(function.curry2(f)))
-  })
+  function.curry2(f)
+    |> succeed
 }
 
 ///
 pub fn succeed3 (f: fn (a, b, c) -> d) -> Eval(fn (a) -> fn (b) -> fn (c) -> d, e, ctx) {
-  Eval(fn (ctx) {
-    #(ctx, Ok(function.curry3(f)))
-  })
+  function.curry3(f)
+    |> succeed
 }
 
 ///
 pub fn succeed4 (f: fn (a, b, c, d) -> e) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> e, e, ctx) {
-  Eval(fn (ctx) {
-    #(ctx, Ok(function.curry4(f)))
-  })
+  function.curry4(f)
+    |> succeed
 }
 
 ///
 pub fn succeed5 (f: fn (a, b, c, d, e) -> f) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> fn (e) -> f, e, ctx) {
-  Eval(fn (ctx) {
-    #(ctx, Ok(function.curry5(f)))
-  })
+  function.curry5(f)
+    |> succeed
 }
 
 ///
 pub fn succeed6 (f: fn (a, b, c, d, e, f) -> g) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> fn (e) -> fn (f) -> g, e, ctx) {
-  Eval(fn (ctx) {
-    #(ctx, Ok(function.curry6(f)))
-  })
+  function.curry6(f)
+    |> succeed
 }
 
 /// Construct an `Eval` that always fails with the given error, regardless of
@@ -154,10 +165,11 @@ pub fn from_result (a: Result(a, e)) -> Eval(a, e, ctx) {
 // MANIPULATIONS
 // -----------------------------------------------------------------------------
 
-/// 
+/// Transform the value produced by an `Eval` using the given function. 
 ///
 /// 📝 Note: you might find this called `fmap` or `<$>` in some other languages
-/// like Haskell or PureScript.
+/// like Haskell or PureScript. In this context, the `Eval` type would be known
+/// as a _functor_.
 ///
 pub fn map (eval: Eval(a, e, ctx), by f: fn (a) -> b) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
@@ -265,7 +277,8 @@ pub fn replace_error (eval: Eval(a, e, ctx), with replacement: x) -> Eval(a, x, 
 /// ```
 ///
 /// 📝 Note: you might find this called `ap` or `<*>` in some other languages
-/// like Haskell or PureScript.
+/// like Haskell or PureScript. In this context, the `Eval` type would be known
+/// as an _applicative functor_.
 ///
 pub fn apply (eval_f: Eval(fn (a) -> b, e, ctx), to eval_a: Eval(a, e, ctx)) -> Eval(b, e, ctx) {
   map2(eval_f, eval_a, fn (f, a) {
@@ -278,7 +291,8 @@ pub fn apply (eval_f: Eval(fn (a) -> b, e, ctx), to eval_a: Eval(a, e, ctx)) -> 
 /// result. This can be useful for chaining together multiple `Eval`s.
 ///
 /// 📝 Note: you might find this called `bind`, `>>=`, `flatMap`, or `andThen` in
-/// some other languages like Haskell, Elm, or PureScript.
+/// some other languages like Haskell, Elm, or PureScript. In this context, the
+/// `Eval` type would be known as a _monad_.
 ///
 pub fn then (eval : Eval(a, e, ctx), do f: fn (a) -> Eval(b, e, ctx)) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
@@ -312,7 +326,7 @@ pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
 /// Run an `Eval` and then attempt to recover from an error by applying a function
 /// that takes the error value and returns another `Eval`.
 ///
-pub fn try_ (eval: Eval(a, e, ctx), catch f: fn (e, ctx) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
+pub fn attempt (eval: Eval(a, e, ctx), catch f: fn (e, ctx) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
     let #(ctx_, result) = runwrap(eval, ctx)
 

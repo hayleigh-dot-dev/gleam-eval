@@ -65,7 +65,7 @@ pub fn pop () -> Parser(String) {
 pub fn many (parser: Parser(a)) -> Parser(List(a)) {
     let push = fn (x, xs) { [ x, ..xs ] }
     let go = fn (xs) {
-        eval.try_(parser |> eval.map(push(_, xs)), catch: fn (_, _) {
+        eval.attempt(parser |> eval.map(push(_, xs)), catch: fn (_, _) {
             list.reverse(xs)
                 |> eval.succeed
         })
@@ -83,7 +83,7 @@ pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
             parser
 
         [ parser, ..rest ] ->
-            eval.try_(parser, catch: fn (e, ctx) {
+            eval.attempt(parser, catch: fn (e, ctx) {
                 case ctx.commit {
                     True ->
                         eval.throw(e)
