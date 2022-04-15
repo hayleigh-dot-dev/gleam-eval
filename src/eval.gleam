@@ -251,15 +251,14 @@ pub fn replace_error (eval: Eval(a, e, ctx), with replacement: x) -> Eval(a, x, 
 // -----------------------------------------------------------------------------
 
 /// Intended to be used in combination with the `succeed{N}` functions. This runs
-/// an `Eval` and then "keeps" it by applying it to the result of the previous
-/// previous eval.
+/// an `Eval` and then _applies_ it to the result of the second argument.
 ///
 /// ```gleam
 /// case expr {
 ///   Add(lhs, rhs) ->
 ///     succeed2(fn (x, y) { x + y })
-///       |> keep(eval(lhs))
-///       |> keep(eval(rhs))
+///       |> apply(eval(lhs))
+///       |> apply(eval(rhs))
 ///
 ///   ...
 /// }
@@ -268,42 +267,12 @@ pub fn replace_error (eval: Eval(a, e, ctx), with replacement: x) -> Eval(a, x, 
 /// 📝 Note: you might find this called `ap` or `<*>` in some other languages
 /// like Haskell or PureScript.
 ///
-pub fn keep (eval_f: Eval(fn (a) -> b, e, ctx), eval_a: Eval(a, e, ctx)) -> Eval(b, e, ctx) {
+pub fn apply (eval_f: Eval(fn (a) -> b, e, ctx), to eval_a: Eval(a, e, ctx)) -> Eval(b, e, ctx) {
   map2(eval_f, eval_a, fn (f, a) {
     f(a)
   })
 }
 
-/// Intended to be used in combination with the `succeed{N}` functions. This runs
-/// runs an `Eval` and then "drops" it, keeping the result of some previous eval
-/// instead.
-/// 
-/// This is particularly useful if you have evals that modify the context but 
-/// don't produce any meaningful values. In the example below, we will modify
-/// the context to include a variable `"z"` to exist just in the scope of `lhs`
-/// and then remove it before evaluating `rhs`.
-/// 
-/// ```gleam
-/// case expr {
-///   Add(lhs, rhs) ->
-///     succeed2(fn (x, y) { x + y })
-///       |> drop(context.modify(stack.push(_, #("z", 1))))
-///       |> keep(eval(lhs))
-///       |> drop(context.modify(stack.pop(_)))
-///       |> drop(eval(rhs))
-/// 
-///   ...
-/// }
-/// ```
-/// 
-/// 📝 Note: you might find this called `<*` or `*>` in some other languages like
-/// Haskell or PureScript.
-/// 
-pub fn drop (eval_a: Eval(a, e, ctx), eval_b: Eval(b, e, ctx)) -> Eval(a, e, ctx) {
-  map2(eval_a, eval_b, fn (a, _) {
-    a
-  })
-}
 
 /// Run an `Eval` and then apply a function that returns another `Eval` to the
 /// result. This can be useful for chaining together multiple `Eval`s.
