@@ -117,7 +117,7 @@ pub fn peek () -> Parser(String) {
                 eval.succeed(grapheme)
             
             _ ->
-                eval.fail(EOF)
+                eval.throw(EOF)
         }
     })
 }
@@ -127,7 +127,7 @@ The API of this package has been designed so that (hopefully) this reads quite
 naturally, even if you are not familiar with how things are implemented, or indeed
 Gleam or functional programming in general. First we `get` the context, `then` we
 look at the stream. If there are still graphemes left we `succeed` with the first
-element in the stream, otherwise we `fail` with an `EOF` error.
+element in the stream, otherwise we `throw` with an `EOF` error.
 
 Our `pop` parser is almost identical, with the additional step of modifying the
 context to remove the grapheme we want to return:
@@ -141,7 +141,7 @@ pub fn pop () -> Parser(String) {
                     |> eval.replace(grapheme)
             
             _ ->
-                eval.fail(EOF)
+                eval.throw(EOF)
         }
     })
 }
@@ -168,7 +168,7 @@ pub fn many (parser: Parser(a)) -> Parser(List(a)) {
 }
 ```
 
-This will repeatedly call `parser` until it fails, and then return the list of
+This will repeatedly call `parser` until it throws, and then return the list of
 all the values it has parsed so far. The list is reversed before returning
 because we want to return the values in the order they were parsed.
 
@@ -191,7 +191,7 @@ pub fn digit () -> Parser(String) {
                 pop() |> eval.replace(grapheme)
             
             _ ->
-                eval.fail(Unexpected(grapheme))
+                eval.throw(Unexpected(grapheme))
         }
     })
 }
@@ -226,7 +226,7 @@ pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
             })
 
         _ ->
-            eval.fail(InvalidParser)
+            eval.throw(InvalidParser)
     }
 }
 ```
