@@ -312,7 +312,7 @@ pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
 /// Run an `Eval` and then attempt to recover from an error by applying a function
 /// that takes the error value and returns another `Eval`.
 ///
-pub fn try_ (eval: Eval(a, e, ctx), catch f: fn (e) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
+pub fn try_ (eval: Eval(a, e, ctx), catch f: fn (e, ctx) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
     let #(ctx_, result) = runwrap(eval, ctx)
 
@@ -321,7 +321,7 @@ pub fn try_ (eval: Eval(a, e, ctx), catch f: fn (e) -> Eval(a, e, ctx)) -> Eval(
         #(ctx_, Ok(a))
 
       Error(e) ->
-        runwrap(f(e), ctx)
+        runwrap(f(e, ctx_), ctx)
     }
   })
 }
