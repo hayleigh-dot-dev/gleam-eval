@@ -6,6 +6,10 @@ you need them.
 [![Package Version](https://img.shields.io/hexpm/v/eval)](https://hex.pm/packages/eval)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/eval/)
 
+> ❗️ **While the documentation for this package is still being worked on, the API
+is very much in flux. Feel free to experiment but know that things may change
+in the future!**
+
 Gleam is an immutable functional programming language, but sometimes it would be
 really helpful to model some mutable state that can be threaded through multiple
 computations. That's where `Eval` comes in!
@@ -14,7 +18,7 @@ Everything in this package is built around the idea of an `Eval` type, which can
 be summarised as:
 
 ```gleam
-fn (context) -> #( context, Result(a, e) )
+fn (context) -> #(context, Result(a, e))
 ```
 
 That is, a function that takes some `context` and returns a (potentially updated)
@@ -27,16 +31,9 @@ targetting Erlang _or_ JavaScript.
 
 ---
 
-## Quick start
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-```
-
 ## Installation
 
-If available on Hex this package can be added to your Gleam project:
+If available on Hex, this package can be added to your Gleam project:
 
 ```sh
 gleam add eval
@@ -48,7 +45,7 @@ and its documentation can be found at <https://hexdocs.pm/eval>.
 
 ## Usage
 
-I mentioned above that an `Eval` is essentially a function that takes some
+We mentioned above that an `Eval` is essentially a function that takes some
 `context` and returns a `Result`. We can start to express more complex and powerful
 computations by composing these functions together using the various functions
 provided in this package.
@@ -85,7 +82,7 @@ the the type free in our `Parser` type, so that we can write intermediary parser
 that may return some other type instead (this will be useful, as we'll se in a
 moment).
 
-```
+```gleam
 type Parser(a) =
     Eval(a, Error, List(String))
 ```
@@ -158,7 +155,7 @@ combinator:
 pub fn many (parser: Parser(a)) -> Parser(List(a)) {
     let append = fn (x, xs) { [ x, ..xs ] }
     let go = fn (xs) {
-        eval.try_(parser |> eval.then(append(_, xs)), catch: fn (_) {
+        eval.attempt(parser |> eval.then(append(_, xs)), catch: fn (_) {
             list.reverse(xs) 
                 |> eval.succeed
         })
@@ -221,7 +218,7 @@ will define `one_of`:
 pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
     case parsers {
         [ parser, ..rest ] ->
-            eval.try_(parser, catch: fn (_) {
+            eval.attempt(parser, catch: fn (_) {
                 one_of(rest)
             })
 
@@ -267,3 +264,6 @@ pub fn run (input: String) -> Result(Expr, Error) {
     )
 }
 ```
+
+Take a look in `test/examples/` to see the complete parser example, as well as
+a handful of others.
