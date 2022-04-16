@@ -49,13 +49,13 @@ fn runwrap (eval: Eval(a, e, ctx), ctx: ctx) -> #(ctx, Result(a, e)) {
 /// 📝 Note: you might find this called `pure` or `return` in some other languages
 /// like Haskell or PureScript.
 ///
-pub fn succeed (a: a) -> Eval(a, e, ctx) {
+pub fn succeed (value: a) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
-    #(ctx, Ok(a))
+    #(ctx, Ok(value))
   })
 }
 
-/// Like `succeed`, but allows you to pass in a function that takes two arguments.
+/// Like `succeed`, but used specifically with a function that takes two arguments.
 /// This is most commonly used with `apply` to run a series of `Eval`s in a
 /// pipeline to build up some more complex value.
 ///
@@ -77,24 +77,37 @@ pub fn succeed2 (f: fn (a, b) -> c) -> Eval(fn (a) -> fn (b) -> c, e, ctx) {
     |> succeed
 }
 
+/// Like `succeed`, but used specifically with a function that takes three arguments.
+/// This is most commonly used with `apply` to run a series of `Eval`s in a
+/// pipeline to build up some more complex value.
 ///
 pub fn succeed3 (f: fn (a, b, c) -> d) -> Eval(fn (a) -> fn (b) -> fn (c) -> d, e, ctx) {
   function.curry3(f)
     |> succeed
 }
 
+/// Like `succeed`, but used specifically with a function that takes four arguments.
+/// This is most commonly used with `apply` to run a series of `Eval`s in a
+/// pipeline to build up some more complex value.
 ///
 pub fn succeed4 (f: fn (a, b, c, d) -> e) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> e, e, ctx) {
   function.curry4(f)
     |> succeed
 }
 
+/// Like `succeed`, but used specifically with a function that takes five arguments.
+/// This is most commonly used with `apply` to run a series of `Eval`s in a
+/// pipeline to build up some more complex value.
 ///
 pub fn succeed5 (f: fn (a, b, c, d, e) -> f) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> fn (e) -> f, e, ctx) {
   function.curry5(f)
     |> succeed
 }
 
+
+/// Like `succeed`, but used specifically with a function that takes six arguments.
+/// This is most commonly used with `apply` to run a series of `Eval`s in a
+/// pipeline to build up some more complex value.
 ///
 pub fn succeed6 (f: fn (a, b, c, d, e, f) -> g) -> Eval(fn (a) -> fn (b) -> fn (c) -> fn (d) -> fn (e) -> fn (f) -> g, e, ctx) {
   function.curry6(f)
@@ -117,9 +130,9 @@ pub fn succeed6 (f: fn (a, b, c, d, e, f) -> g) -> Eval(fn (a) -> fn (b) -> fn (
 /// })
 /// ```
 ///
-pub fn throw (e: e) -> Eval(a, e, ctx) {
+pub fn throw (error: e) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
-    #(ctx, Error(e))
+    #(ctx, Error(error))
   })
 }
 
@@ -137,13 +150,13 @@ pub fn from (eval: fn (ctx) -> #(ctx, Result(a, e))) -> Eval(a, e, ctx) {
 /// is `None`. This is useful for situations where you have some function or value
 /// that returns an `Option` but is not dependent on the context.
 ///
-pub fn from_option (a: Option(a), e: e) -> Eval(a, e, ctx) {
-  case a {
+pub fn from_option (value: Option(a), error: e) -> Eval(a, e, ctx) {
+  case value {
     Some(a) -> 
       succeed(a)
     
     None ->
-      throw(e)
+      throw(error)
   }
 }
 
@@ -151,8 +164,8 @@ pub fn from_option (a: Option(a), e: e) -> Eval(a, e, ctx) {
 /// some function or value that returns a `Result` but is not dependent on the
 /// context.
 ///
-pub fn from_result (a: Result(a, e)) -> Eval(a, e, ctx) {
-  case a {
+pub fn from_result (value: Result(a, e)) -> Eval(a, e, ctx) {
+  case value {
     Ok(a) -> 
       succeed(a)
     
@@ -294,7 +307,7 @@ pub fn apply (eval_f: Eval(fn (a) -> b, e, ctx), to eval_a: Eval(a, e, ctx)) -> 
 /// some other languages like Haskell, Elm, or PureScript. In this context, the
 /// `Eval` type would be known as a _monad_.
 ///
-pub fn then (eval : Eval(a, e, ctx), do f: fn (a) -> Eval(b, e, ctx)) -> Eval(b, e, ctx) {
+pub fn then (eval: Eval(a, e, ctx), do f: fn (a) -> Eval(b, e, ctx)) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
     let #(ctx, result) = runwrap(eval, ctx)
 
