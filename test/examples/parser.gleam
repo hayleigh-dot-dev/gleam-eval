@@ -83,7 +83,7 @@ pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
             parser
 
         [ parser, ..rest ] ->
-            eval.attempt(parser, catch: fn (e, ctx) {
+            eval.attempt(parser, catch: fn (ctx, e) {
                 case ctx.commit {
                     True ->
                         eval.throw(e)

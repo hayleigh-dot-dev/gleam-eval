@@ -226,6 +226,8 @@ pub fn map2 (eval_a: Eval(a, e, ctx), eval_b: Eval(b, e, ctx), by f: fn (a, b) -
   })
 }
 
+/// Just like `map` but for error-producing steps instead. Transforms the error
+/// produced by some `Eval` step using the given function.
 ///
 pub fn map_error (eval: Eval(a, e, ctx), by f: fn (e) -> x) -> Eval(a, x, ctx) {
   Eval(fn (ctx) {
@@ -241,6 +243,9 @@ pub fn map_error (eval: Eval(a, e, ctx), by f: fn (e) -> x) -> Eval(a, x, ctx) {
   })
 }
 
+/// Run an `Eval` step but then replace its result with some other fixed value.
+/// Often used in tandem with effectful steps that often _do_ something but don't
+/// produce any meaninful value (and so are usually `Eval(Nil, e, ctx)`).
 ///
 pub fn replace (eval: Eval(a, e, ctx), with replacement: b) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
@@ -256,6 +261,8 @@ pub fn replace (eval: Eval(a, e, ctx), with replacement: b) -> Eval(b, e, ctx) {
   })
 }
 
+/// Just like `replace` but for error-producing steps instead. Replaces the error
+/// thrown by some `Eval` step with another, fixed, value.
 ///
 pub fn replace_error (eval: Eval(a, e, ctx), with replacement: x) -> Eval(a, x, ctx) {
   Eval(fn (ctx) {
@@ -339,7 +346,7 @@ pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
 /// Run an `Eval` and then attempt to recover from an error by applying a function
 /// that takes the error value and returns another `Eval`.
 ///
-pub fn attempt (eval: Eval(a, e, ctx), catch f: fn (e, ctx) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
+pub fn attempt (eval: Eval(a, e, ctx), catch f: fn (ctx, e) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
     let #(ctx_, result) = runwrap(eval, ctx)
 
