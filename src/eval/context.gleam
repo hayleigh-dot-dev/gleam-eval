@@ -1,12 +1,14 @@
 import eval.{Eval}
 
-/// 
+/// Get the current context.
+///
 pub fn get () -> Eval(ctx, e, ctx) {
     eval.from(fn (ctx) {
         #(ctx, Ok(ctx))
     })
 }
 
+/// Replace the current context with a new fixed value.
 ///
 pub fn set (ctx: ctx) -> Eval(Nil, e, ctx) {
     eval.from(fn (_) {
@@ -14,6 +16,7 @@ pub fn set (ctx: ctx) -> Eval(Nil, e, ctx) {
     })
 }
 
+/// Update the current context by applying a function to it.
 ///
 pub fn modify (f: fn (ctx) -> ctx) -> Eval(Nil, e, ctx) {
     get() |> eval.then(fn (ctx) { 
@@ -21,6 +24,7 @@ pub fn modify (f: fn (ctx) -> ctx) -> Eval(Nil, e, ctx) {
     })
 }
 
+/// 
 ///
 pub fn update (eval: Eval(a, e, ctx), f: fn (ctx, a) -> ctx) -> Eval(a, e, ctx) {
     eval.map2(eval, get(), fn (a, ctx) { #(ctx, a) })
