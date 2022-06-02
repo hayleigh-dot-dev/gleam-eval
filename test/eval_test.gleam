@@ -1,10 +1,5 @@
 import examples/expr.{ eval, Add, Num, Var, Let, UndefinedVariable }
-import examples/parser.{ run, Unexpected, UnexpectedEOF, InvalidParser }
-import gleam/function
-import gleam/io
-import gleam/list
-import gleam/pair
-import gleam/result
+import examples/parser
 import gleeunit
 import gleeunit/should
 import eval
