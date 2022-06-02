@@ -16,6 +16,13 @@ pub fn set (ctx: ctx) -> Eval(Nil, e, ctx) {
     })
 }
 
+/// Run an `Eval` step and then replace the resulting context with a new fixed
+/// value.
+///
+pub fn then_set (eval: Eval(a, e, ctx), ctx: ctx) -> Eval(a, e, ctx) {
+    update(eval, fn (_, _) { ctx })
+}
+
 /// Update the current context by applying a function to it.
 ///
 pub fn modify (f: fn (ctx) -> ctx) -> Eval(Nil, e, ctx) {
