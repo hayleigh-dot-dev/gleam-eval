@@ -24,16 +24,16 @@ pub opaque type Eval(a, e, ctx) {
 /// that the computation is running in.
 ///
 pub fn run (eval: Eval(a, e, ctx), with context: ctx) -> Result(a, e) {
-  runwrap(eval, context)
+  step(eval, context)
     |> pair.second
 }
 
-/// This is an internal function that just makes it easier to run individual
-/// evals. Gleam does not support pattern matching in function arguments, even
-/// in cases where it would not be ambiguous, so we use `runwrap` to avoid an
-/// extra `let` binding just to unrwap the function contained inside an `Eval`.
+/// Step through an `Eval` and get back both it's result and the context it
+/// produced. This is especially useful if you want to run some computation,
+/// do some other Gleam bits, and then continue with the computation by passing
+/// the produced context to `run` or `step` again.
 ///
-fn runwrap (eval: Eval(a, e, ctx), ctx: ctx) -> #(ctx, Result(a, e)) {
+pub fn step (eval: Eval(a, e, ctx), ctx: ctx) -> #(ctx, Result(a, e)) {
   let Eval(eval) = eval
 
   eval(ctx)
@@ -186,7 +186,7 @@ pub fn from_result (value: Result(a, e)) -> Eval(a, e, ctx) {
 ///
 pub fn map (eval: Eval(a, e, ctx), by f: fn (a) -> b) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx, result) = step(eval, ctx)
 
     case result {
       Ok(a) ->
@@ -205,11 +205,11 @@ pub fn map (eval: Eval(a, e, ctx), by f: fn (a) -> b) -> Eval(b, e, ctx) {
 ///
 pub fn map2 (eval_a: Eval(a, e, ctx), eval_b: Eval(b, e, ctx), by f: fn (a, b) -> c) -> Eval(c, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result1) = runwrap(eval_a, ctx)
+    let #(ctx, result1) = step(eval_a, ctx)
 
     case result1 {
       Ok(a) -> {
-        let #(ctx, result2) = runwrap(eval_b, ctx)
+        let #(ctx, result2) = step(eval_b, ctx)
 
         case result2 {
           Ok(b) ->
@@ -231,7 +231,7 @@ pub fn map2 (eval_a: Eval(a, e, ctx), eval_b: Eval(b, e, ctx), by f: fn (a, b) -
 ///
 pub fn map_error (eval: Eval(a, e, ctx), by f: fn (e) -> x) -> Eval(a, x, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx, result) = step(eval, ctx)
 
     case result {
       Ok(a) ->
@@ -249,7 +249,7 @@ pub fn map_error (eval: Eval(a, e, ctx), by f: fn (e) -> x) -> Eval(a, x, ctx) {
 ///
 pub fn replace (eval: Eval(a, e, ctx), with replacement: b) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx, result) = step(eval, ctx)
 
     case result {
       Ok(_) ->
@@ -266,7 +266,7 @@ pub fn replace (eval: Eval(a, e, ctx), with replacement: b) -> Eval(b, e, ctx) {
 ///
 pub fn replace_error (eval: Eval(a, e, ctx), with replacement: x) -> Eval(a, x, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx, result) = step(eval, ctx)
 
     case result {
       Ok(a) ->
@@ -316,11 +316,11 @@ pub fn apply (eval_f: Eval(fn (a) -> b, e, ctx), to eval_a: Eval(a, e, ctx)) -> 
 ///
 pub fn then (eval: Eval(a, e, ctx), do f: fn (a) -> Eval(b, e, ctx)) -> Eval(b, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx, result) = runwrap(eval, ctx)
+    let #(ctx, result) = step(eval, ctx)
 
     case result {
       Ok(a) -> {
-        runwrap(f(a), ctx)
+        step(f(a), ctx)
       }
 
       Error(e) ->
@@ -359,14 +359,14 @@ pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
 ///
 pub fn attempt (eval: Eval(a, e, ctx), catch f: fn (ctx, e) -> Eval(a, e, ctx)) -> Eval(a, e, ctx) {
   Eval(fn (ctx) {
-    let #(ctx_, result) = runwrap(eval, ctx)
+    let #(ctx_, result) = step(eval, ctx)
 
     case result {
       Ok(a) ->
         #(ctx_, Ok(a))
 
       Error(e) ->
-        runwrap(f(ctx_, e), ctx)
+        step(f(ctx_, e), ctx)
     }
   })
 }
