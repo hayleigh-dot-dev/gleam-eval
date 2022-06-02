@@ -335,6 +335,17 @@ pub fn then (eval: Eval(a, e, ctx), do f: fn (a) -> Eval(b, e, ctx)) -> Eval(b, 
 /// 📝 Note: you might find this called `sequence` in some other languages like
 /// Haskell or PureScript.
 ///
+/// ✨ Tip: in other languages there might be a more general version of this
+/// function called `traverse`. You can easily create that by combining `list.map`
+/// and `all`!
+///
+/// ```gleam
+/// [ 1, 2, 3 ]
+///     |> list.map(eval.succeed)
+///     |> eval.all
+///     // => Eval(List(Int), e, ctx)
+/// ```
+///
 pub fn all (evals: List(Eval(a, e, ctx))) -> Eval(List(a), e, ctx) {
   let prepend  = fn (list, a) { [a, ..list] }
   let callback = fn (a, list) { map2(a, list, prepend) }
@@ -355,7 +366,7 @@ pub fn attempt (eval: Eval(a, e, ctx), catch f: fn (ctx, e) -> Eval(a, e, ctx)) 
         #(ctx_, Ok(a))
 
       Error(e) ->
-        runwrap(f(e, ctx_), ctx)
+        runwrap(f(ctx_, e), ctx)
     }
   })
 }
