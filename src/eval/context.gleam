@@ -1,4 +1,4 @@
-import eval.{Eval}
+import eval.{type Eval}
 
 /// Get the current context.
 ///

@@ -33,7 +33,7 @@ targetting Erlang _or_ JavaScript.
 
 ## Installation
 
-If available on Hex, this package can be added to your Gleam project:
+This package can be added to your Gleam project:
 
 ```sh
 gleam add eval

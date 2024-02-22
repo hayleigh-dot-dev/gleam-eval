@@ -1,7 +1,7 @@
 ////
 import gleam/function
 import gleam/list
-import gleam/option.{Option, Some, None}
+import gleam/option.{type Option, Some, None}
 import gleam/pair
 
 // -----------------------------------------------------------------------------

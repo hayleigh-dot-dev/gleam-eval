@@ -1,7 +1,7 @@
 import gleam/list
 import gleam/pair
 import gleam/result
-import eval.{Eval}
+import eval.{type Eval}
 import eval/context
 
 // -----------------------------------------------------------------------------
