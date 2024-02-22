@@ -1,4 +1,4 @@
-import eval.{Eval}
+import eval.{type Eval}
 import eval/context
 import gleam/int
 import gleam/list
@@ -130,7 +130,7 @@ pub fn int () -> Parser(Int) {
     })
 
     many(digit) |> eval.map(fn (num) {
-        assert Ok(n) = string.join(num, "") |> int.parse
+        let assert Ok(n) = string.join(num, "") |> int.parse
 
         n
     })
