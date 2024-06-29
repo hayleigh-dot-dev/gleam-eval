@@ -59,8 +59,8 @@ will only allow for two types of expressions:
 
 ```gleam
 type Expr {
-    Number(Int)
-    Add(Expr, Expr)
+  Number(Int)
+  Add(Expr, Expr)
 }
 ```
 
@@ -71,9 +71,9 @@ define an `Error` type that we can throw if something goes wrong during parsing:
 
 ```gleam
 type Error {
-    Unexpected(String)
-    EOF
-    InvalidParser
+  Unexpected(String)
+  Eof
+  InvalidParser
 }
 ```
 
@@ -84,7 +84,7 @@ moment).
 
 ```gleam
 type Parser(a) =
-    Eval(a, Error, List(String))
+  Eval(a, Error, List(String))
 ```
 
 ### Basic building blocks
@@ -108,15 +108,12 @@ Then we can define our `peek` parser:
 
 ```gleam
 pub fn peek () -> Parser(String) {
-    context.get() |> eval.then(fn (stream) {
-        case stream {
-            [ grapheme, .. ] ->
-                eval.succeed(grapheme)
-            
-            _ ->
-                eval.throw(EOF)
-        }
-    })
+  use stream <- eval.try(context.get())
+
+  case stream {
+    [grapheme, ..] -> eval.return(grapheme)
+    _ -> eval.throw(Eof)
+  }
 }
 ```
 
@@ -131,16 +128,16 @@ context to remove the grapheme we want to return:
 
 ```gleam
 pub fn pop () -> Parser(String) {
-    context.get() |> eval.then(fn (stream) {
-        case stream {
-            [ grapheme, ..rest ] ->
-                context.set(rest)
-                    |> eval.replace(grapheme)
-            
-            _ ->
-                eval.throw(EOF)
-        }
-    })
+  use stream <- eval.try(context.get())
+
+  case stream {
+    [grapheme, ..rest] -> {
+      use _ <- eval.try(context.set(rest))
+
+      eval.return(grapheme)
+    }
+    _ -> eval.throw(Eof)
+  }
 }
 ```
 
@@ -153,15 +150,14 @@ combinator:
 
 ```gleam
 pub fn many (parser: Parser(a)) -> Parser(List(a)) {
-    let append = fn (x, xs) { [ x, ..xs ] }
-    let go = fn (xs) {
-        eval.attempt(parser |> eval.then(append(_, xs)), catch: fn (_) {
-            list.reverse(xs) 
-                |> eval.succeed
-        })
-    }
+  let one = fn (xs) { eval.map(parser, list.prepend(xs, _)) }
+  let go = fn (xs) {
+    eval.attempt(one, catch: fn (_) {
+      list.reverse(xs) |> eval.succeed
+    })
+  }
 
-    go([])
+  go([])
 }
 ```
 
@@ -181,16 +177,13 @@ Before we can parse integers, we'll want a `digit` parser to pass to `many`:
 
 ```gleam
 pub fn digit () -> Parser(String) {
-    peek() |> eval.then(fn (grapheme) {
-        case grapheme {
-            "0" | "1" | "2" | "3" | "4" |
-            "5" | "6" | "7" | "8" | "9" ->
-                pop() |> eval.replace(grapheme)
-            
-            _ ->
-                eval.throw(Unexpected(grapheme))
-        }
-    })
+  use grapheme <- eval.try(peek())
+
+  case grapheme {
+    "0" | "1" | "2" | "3" | "4" |
+    "5" | "6" | "7" | "8" | "9" -> eval.replace(pop(), grapheme)
+    _ -> eval.throw(Unexpected(grapheme))
+  }
 }
 ```
 
@@ -200,13 +193,11 @@ turn that string into a bona fide integer:
 
 ```gleam
 pub fn int () -> Parser(Int) {
-    many(digit())
-        |> eval.map(string.join(_, ""))
-        |> eval.map(fn (digits) {
-            assert Ok(n) = int.parse(digits)
+  use digits <- eval.try(many(digit()))
+  let number = string.join(digits, "")
+  let assert Ok(n) = int.parse(number)
 
-            n
-        })
+  eval.return(n)
 }
 ```
 
@@ -216,15 +207,10 @@ will define `one_of`:
 
 ```gleam
 pub fn one_of (parsers: List(Parser(a))) -> Parser(a) {
-    case parsers {
-        [ parser, ..rest ] ->
-            eval.attempt(parser, catch: fn (_) {
-                one_of(rest)
-            })
-
-        _ ->
-            eval.throw(InvalidParser)
-    }
+  case parsers {
+    [parser, ..rest] -> eval.attempt(parser, catch: fn (_) { one_of(rest) })
+    _ -> eval.throw(InvalidParser)
+  }
 }
 ```
 
@@ -237,31 +223,26 @@ is the rest of the program:
 
 ```gleam
 pub fn number () -> Parser(Expr) {
-    int() |> eval.map(Number)
+  int() |> eval.map(Number)
 }
 
 pub fn expr () -> Parser(Expr) {
-    number() |> eval.then(fn (lhs) {
-        peek() |> eval.then(fn (grapheme) {
-            case grapheme {
-                "+" ->
-                    pop() |> eval.then(fn (_) {
-                        expr() |> eval.map(fn (rhs) {
-                            Add(lhs, rhs)
-                        })
-                    })
+  use lhs <- eval.try(number())
+  use grapheme <- eval.try(peek())
 
-                _ ->
-                    eval.succeed(lhs)
-            }
-        })
-    })
+  case grapheme {
+    "+" -> {
+      use _ <- eval.try(pop())
+      use rhs <- eval.try(expr())
+
+      eval.return(Add(lhs, rhs))
+    }
+    _ -> eval.succeed(lhs)
+  }
 }
 
 pub fn run (input: String) -> Result(Expr, Error) {
-    eval.run(expr(), with:
-        string.graphemes(input)
-    )
+  eval.run(expr(), with: string.graphemes(input))
 }
 ```
 

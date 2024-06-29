@@ -1,8 +1,8 @@
+import eval.{type Eval}
+import eval/context
 import gleam/list
 import gleam/pair
 import gleam/result
-import eval.{Eval}
-import eval/context
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -32,101 +32,70 @@ pub type Scope =
 
 pub fn eval(expr: Expr) -> Eval(Float, Error, Scope) {
   case expr {
-    Add(lhs, rhs) ->
-      add(lhs, rhs)
-
-    Sub(lhs, rhs) ->
-      sub(lhs, rhs)
-
-    Mul(lhs, rhs) ->
-      mul(lhs, rhs)
-
-    Div(lhs, rhs) ->
-      div(lhs, rhs)
-
-    Num(x) -> 
-      eval.succeed(x)
-
-    Var(name) ->
-      var(name)
-
-    Let(name, value, body) ->
-      let_(name, value, body)
+    Add(lhs, rhs) -> add(lhs, rhs)
+    Sub(lhs, rhs) -> sub(lhs, rhs)
+    Mul(lhs, rhs) -> mul(lhs, rhs)
+    Div(lhs, rhs) -> div(lhs, rhs)
+    Num(x) -> eval.return(x)
+    Var(name) -> var(name)
+    Let(name, value, body) -> let_(name, value, body)
   }
 }
 
-fn add (lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
-    let x = eval(lhs)
-    let y = eval(rhs)
+fn add(lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
+  use x <- eval.try(eval(lhs))
+  use y <- eval.try(eval(rhs))
 
-    eval.map2(x, y, fn (x, y) {
-        x +. y
-    })
+  eval.return(x +. y)
 }
 
-fn sub (lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
-    let x = eval(lhs)
-    let y = eval(rhs)
+fn sub(lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
+  use x <- eval.try(eval(lhs))
+  use y <- eval.try(eval(rhs))
 
-    eval.map2(x, y, fn (x, y) {
-        x -. y
-    })
+  eval.return(x -. y)
 }
 
-fn mul (lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
-    let x = eval(lhs)
-    let y = eval(rhs)
+fn mul(lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
+  use x <- eval.try(eval(lhs))
+  use y <- eval.try(eval(rhs))
 
-    eval.map2(x, y, fn (x, y) {
-        x *. y
-    })
+  eval.return(x *. y)
 }
 
-fn div (lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
-    let x = eval(lhs)
-    let y = eval(rhs) |> eval.then(fn (y) {
-        case y == 0.0 {
-            True -> 
-                eval.throw(DivisionByZero)
+fn div(lhs: Expr, rhs: Expr) -> Eval(Float, Error, Scope) {
+  use x <- eval.try(eval(lhs))
+  use y <- eval.try(eval(rhs))
+  use <- eval.guard(y == 0.0, DivisionByZero)
 
-            False ->
-                eval.succeed(y)
-        }
-    })
-
-
-    eval.map2(x, y, fn (x, y) {
-        x /. y
-    })
+  eval.return(x /. y)
 }
 
-fn var (name: String) -> Eval(Float, Error, Scope) {
-  let lookup = list.find(_, fn (binding) { pair.first(binding) == name })
+fn var(name: String) -> Eval(Float, Error, Scope) {
+  let lookup = list.find(_, fn(binding) { pair.first(binding) == name })
+  use scope <- eval.try(context.get())
 
-  context.get() |> eval.then(fn (scope) {
-    case lookup(scope) {
-      Ok(#(_, expr)) -> 
-        eval.succeed(expr)
-
-      Error(_) -> 
-        eval.throw(UndefinedVariable(name))
-    }
-  })
+  case lookup(scope) {
+    Ok(#(_, expr)) -> eval.return(expr)
+    Error(_) -> eval.throw(UndefinedVariable(name))
+  }
 }
 
-fn let_ (name: String, value: Expr, body: Expr) -> Eval(Float, Error, Scope) {
+fn let_(name: String, value: Expr, body: Expr) -> Eval(Float, Error, Scope) {
   // The standard library doesn't have a function for prepending an element to a
   // list, so we gotta define one ourselves.
-  let push = fn (list, val) { [val, ..list] }
+  let push = fn(list, val) { [val, ..list] }
   // The standard library function that gets the tail of a list, somewhat annoyingly
   // returns an error, so this wrapper exists to just return an empty list instead.
-  let pop  = fn (list) { list.rest(list) |> result.unwrap([]) }
+  let pop = fn(list) {
+    list.rest(list)
+    |> result.unwrap([])
+  }
 
-  eval(value)
-    |> eval.then(fn (n) { context.modify(push(_, #(name, n))) })
-    |> eval.then(fn (_) { eval(body) })
-    |> eval.then(fn (expr) { 
-      context.modify(pop)
-        |> eval.replace(expr)
-    })
+  use n <- eval.try(eval(value))
+  use _ <- eval.try(context.update(push(_, #(name, n))))
+  use expr <- eval.try(eval(body))
+  use _ <- eval.try(context.update(pop))
+
+  eval.return(expr)
 }
